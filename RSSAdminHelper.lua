@@ -216,7 +216,8 @@ function takeScreenShot()
     if(not autoScreenShot) then return end;
     lua_thread.create(function()
         wait(1000);
-        writeMemory(sampDll + 0x119CBC, 1, 1, false);
+        setVirtualKeyDown(key.VK_F8, false);
+        --writeMemory(sampDll + 0x119CBC, 1, 1, false);
         --setVirtualKeyDown(key.VK_SNAPSHOT, true);
     end);
 end
