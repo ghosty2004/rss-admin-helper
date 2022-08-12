@@ -1,0 +1,7 @@
+*
+!lib/
+!lib/*
+!lib/*/*
+!RSSAdminHelper.lua
+!RSSAdminHelper_blacklistedWords.txt
+!.gitignore
