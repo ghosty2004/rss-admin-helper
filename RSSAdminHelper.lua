@@ -12,7 +12,7 @@ local menuSelectedTab = imgui.ImInt(1);
 
 local dingOnShot = imgui.ImBool(false);
 local autoMute = imgui.ImBool(false);
-local whitelistedTags = {"{FF0000}(King)", "{FF0000}(Lord)", "{0060ff}(Admin)"};
+local whitelistedTags = {"{FF0000}(King)", "{FF0000}(Lord)", "{FF0000}({FFFFFF}RCON{FF0000})", "{0060ff}(Admin)"};
 local blacklistedWords = {};
 
 local sampDll = nil;
