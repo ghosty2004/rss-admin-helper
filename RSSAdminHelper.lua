@@ -11,7 +11,10 @@ local menuTabs = {"Utility", "Auto", "Blacklisted", "Whitelisted"};
 local menuSelectedTab = imgui.ImInt(1);
 
 local dingOnShot = imgui.ImBool(false);
+
 local autoMute = imgui.ImBool(false);
+local autoScreenShot = imgui.ImBool(true);
+
 local whitelistedTags = {"{FF0000}(King)", "{FF0000}(Lord)", "{FF0000}({FFFFFF}RCON{FF0000})", "{0060ff}(Admin)"};
 local blacklistedWords = {};
 
@@ -35,10 +38,6 @@ function main()
     loadMissionAudio(1, 17802);
 
     sampAddChatMessage(string.format("[RSSBUSTER]: Loaded (Lua version: %s, Moonloader version: %d).", _VERSION, getMoonloaderVersion()), 0xFF0000);
-
-    sampRegisterChatCommand("ss", function()
-        takeScreenShot();
-    end)
 
     while true do
         wait(0);
@@ -114,7 +113,7 @@ imgui.GetIO().FontGlobalScale = 1.3;
 
 function imgui.OnDrawFrame()
     if(menuState.v) then
-        imgui.SetNextWindowSize(imgui.ImVec2(300, 300), imgui.Cond.FirstUseEver);
+        imgui.SetNextWindowSize(imgui.ImVec2(400, 300), imgui.Cond.FirstUseEver);
         imgui.Begin("RSS Admin Helper", true, imgui.WindowFlags.NoResize + imgui.WindowFlags.NoCollapse);
 
         imgui.Columns(2);
@@ -134,6 +133,7 @@ function imgui.OnDrawFrame()
             imgui.Checkbox("Ding On Shot", dingOnShot);
         elseif(menuSelectedTab.v == 2) then
             imgui.Checkbox("Mute", autoMute);
+            imgui.Checkbox("Screen-Shot", autoScreenShot);
         elseif(menuSelectedTab.v == 3) then
             imgui.TextColored(ImVec4(1, 1, 0, 1), "Words");
             imgui.BeginChild("Scrolling");
@@ -213,9 +213,10 @@ function isStringHaveBlacklistedWords(string)
 end
 
 function takeScreenShot()
+    if(not autoScreenShot) then return end;
     lua_thread.create(function()
         wait(1000);
-        --writeMemory(sampDll + 0x119CBC, 1, 1, false);
-        setVirtualKeyDown(key.VK_SNAPSHOT, true);
+        writeMemory(sampDll + 0x119CBC, 1, 1, false);
+        --setVirtualKeyDown(key.VK_SNAPSHOT, true);
     end);
 end
