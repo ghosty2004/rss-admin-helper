@@ -5,7 +5,6 @@ script_version("1.0.0");
 local sampev = require("samp.events");
 local imgui = require("imgui");
 local key = require("vkeys");
---local screenshot = require("screenshot");
 
 local menuState = imgui.ImBool(false);
 local menuTabs = {"Utility", "Auto", "Blacklisted", "Whitelisted"};
