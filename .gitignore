@@ -2,6 +2,8 @@
 !lib/
 !lib/*
 !lib/*/*
+!preview/
+!preview/*
 !RSSAdminHelper.lua
 !RSSAdminHelper_blacklistedWords.txt
 !.gitignore
