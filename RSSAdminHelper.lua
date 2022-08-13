@@ -167,10 +167,14 @@ function sampev.onServerMessage(color, text)
 
     local isAdminChat = false;
     local isVipChat = false;
+    local isGangChat = false;
+    local isClanChat = false;
     if(color == 872362922 and text:find("{FF9D00}Admin Chat: ")) then isAdminChat = true end
     if(color == 872362922 and text:find("{FF9D00}Vip Chat: ")) then isVipChat = true end
+    if(color == -6487809 and text:find("Gang Chat{FF4800}:")) then isGangChat = true end
+    if(color == -6487809 and text:find("Clan Chat: {FF4800}")) then isClanChat = true end
 
-    if(not isAdminChat and not isVipChat and not isStringHasWhitelistedTag(text)) then
+    if(not isAdminChat and not isVipChat and not isGangChat and not isClanChat and not isStringHasWhitelistedTag(text)) then
         local i, j = text:find("{15FF00}");
         if(i == nil) then return end;
         local newText = text:sub(j+1);
