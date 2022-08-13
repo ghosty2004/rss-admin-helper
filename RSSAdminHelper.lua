@@ -14,6 +14,7 @@ local dingOnShot = imgui.ImBool(false);
 
 local autoMute = imgui.ImBool(false);
 local autoScreenShot = imgui.ImBool(true);
+local autoReconnect = imgui.ImBool(true);
 
 local whitelistedTags = {"{FF0000}(King)", "{FF0000}(Lord)", "{FF0000}({FFFFFF}RCON{FF0000})", "{0060ff}(Admin)"};
 local blacklistedWords = {};
@@ -134,6 +135,7 @@ function imgui.OnDrawFrame()
         elseif(menuSelectedTab.v == 2) then
             imgui.Checkbox("Mute", autoMute);
             imgui.Checkbox("Screen-Shot", autoScreenShot);
+            imgui.Checkbox("Reconnect", autoReconnect);
         elseif(menuSelectedTab.v == 3) then
             imgui.TextColored(ImVec4(1, 1, 0, 1), "Words");
             imgui.BeginChild("Scrolling");
@@ -188,9 +190,19 @@ end
 
 function sampev.onPlayerJoin(playerId, color, isNpc, nickname)
     if(isStringHaveBlacklistedWords(nickname)) then
-        sampAddChatMessage(string.format("[RSSBUSTER]: Jucator conectat cu nume vulgar: %s", nickname), 0xFF0000);
+        sampAddChatMessage(string.format("[RSSBUSTER]: Jucator conectat cu nume vulgar: %s(%d)", nickname, playerId), 0xFF0000);
     elseif((string.format("%s", nickname)):lower():find("(admin)")) then
         sampAddChatMessage(string.format("[RSSBUSTER]: Player %s(%d) connected with admin tag", nickname, playerId));
+    end
+end
+
+function sampev.onConnectionLost() checkReconnect() end
+function sampev.onConnectionClosed() checkReconnect() end
+
+function checkReconnect()
+    if(autoReconnect) then 
+        local ip, port = sampGetCurrentServerAddress()
+        sampConnectToServer(ip, port);
     end
 end
 
