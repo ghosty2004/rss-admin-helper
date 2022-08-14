@@ -7,7 +7,7 @@ local imgui = require("imgui");
 local key = require("vkeys");
 
 local menuState = imgui.ImBool(false);
-local menuTabs = {"Utility", "Auto", "Blacklisted", "Whitelisted"};
+local menuTabs = {"Utility", "Auto", "Actions", "Blacklisted", "Whitelisted"};
 local menuSelectedTab = imgui.ImInt(1);
 
 local dingOnShot = imgui.ImBool(false);
@@ -137,13 +137,15 @@ function imgui.OnDrawFrame()
             imgui.Checkbox("Screen-Shot", autoScreenShot);
             imgui.Checkbox("Reconnect", autoReconnect);
         elseif(menuSelectedTab.v == 3) then
+            
+        elseif(menuSelectedTab.v == 4) then
             imgui.TextColored(ImVec4(1, 1, 0, 1), "Words");
             imgui.BeginChild("Scrolling");
             for index, value in ipairs(blacklistedWords) do
                 imgui.Text(string.format("%s", value));
             end
             imgui.EndChild();
-        elseif(menuSelectedTab.v == 4) then
+        elseif(menuSelectedTab.v == 5) then
             imgui.TextColored(ImVec4(1, 1, 0, 1), "Tags");
             imgui.BeginChild("Scrolling");
             for index, value in ipairs(whitelistedTags) do
