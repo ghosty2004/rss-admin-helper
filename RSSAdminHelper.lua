@@ -137,7 +137,18 @@ function imgui.OnDrawFrame()
             imgui.Checkbox("Screen-Shot", autoScreenShot);
             imgui.Checkbox("Reconnect", autoReconnect);
         elseif(menuSelectedTab.v == 3) then
-            
+            if(imgui.Button("Respect All")) then
+                lua_thread.create(function()
+                    wait(0);
+                    local _, playerId = sampGetPlayerIdByCharHandle(PLAYER_PED);
+                    for i=0, 999 do
+                        if(sampIsPlayerConnected(i) and i ~= playerId) then
+                            wait(1100);
+                            sampProcessChatInput(string.format("/respect %d 1 -> /respect %d 1 1", i, playerId));
+                        end
+                    end
+                end);
+            end
         elseif(menuSelectedTab.v == 4) then
             imgui.TextColored(ImVec4(1, 1, 0, 1), "Words");
             imgui.BeginChild("Scrolling");
