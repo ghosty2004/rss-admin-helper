@@ -14,7 +14,7 @@ local dingOnShot = imgui.ImBool(false);
 
 local autoMute = imgui.ImBool(false);
 local autoScreenShot = imgui.ImBool(true);
-local autoReconnect = imgui.ImBool(true);
+local autoInstantReplay = imgui.ImBool(false);
 local autoRob = imgui.ImBool(false);
 
 local robbedPlayers = {};
@@ -174,7 +174,7 @@ function imgui.OnDrawFrame()
         elseif(menuSelectedTab.v == 2) then
             imgui.Checkbox("Mute", autoMute);
             imgui.Checkbox("Screen-Shot", autoScreenShot);
-            imgui.Checkbox("Reconnect", autoReconnect);
+            imgui.Checkbox("Instant Replay", autoInstantReplay);
             imgui.Checkbox("Rob", autoRob);
         elseif(menuSelectedTab.v == 3) then
             if(imgui.Button("Respect All")) then
@@ -188,6 +188,10 @@ function imgui.OnDrawFrame()
                         end
                     end
                 end);
+            end
+            if(imgui.Button("Reconnect")) then
+                local ip, port = sampGetCurrentServerAddress();
+                sampConnectToServer(ip, port);
             end
         elseif(menuSelectedTab.v == 4) then
             imgui.TextColored(ImVec4(1, 1, 0, 1), "Words");
@@ -260,25 +264,21 @@ function sampev.onPlayerJoin(playerId, color, isNpc, nickname)
     end
 end
 
-function sampev.onConnectionLost() checkReconnect() end
-function sampev.onConnectionClosed() checkReconnect() end
-
 function sampev.onPlayerDeathNotification(killerId, killedId, reason)
     if(robbedPlayers[killedId] ~= nil) then
         robbedPlayers[killerId] = nil
+    end
+
+    local _, playerId = sampGetPlayerIdByCharHandle(PLAYER_PED);
+    if(_) then
+        if(playerId ~= killerId) then return end;
+        takeInstantReplay();
     end
 end
 
 ----------------
 --> Functions
 ----------------
-function checkReconnect()
-    if(autoReconnect) then 
-        local ip, port = sampGetCurrentServerAddress()
-        sampConnectToServer(ip, port);
-    end
-end
-
 function isStringHasWhitelistedTag(string)
     for index, value in ipairs(whitelistedTags) do
         if(string:find(value, 1, true)) then
@@ -313,5 +313,16 @@ function takeScreenShot()
         --setVirtualKeyDown(key.VK_F8, false); -- for F8
         --writeMemory(sampDll + 0x119CBC, 1, 1, false); -- for F8 alternative but call function to "samp.dll"
         setVirtualKeyDown(key.VK_SNAPSHOT, true); -- for "prtsc"
+    end);
+end
+
+function takeInstantReplay()
+    if(not autoInstantReplay) then return end;
+    lua_thread.create(function()
+        setVirtualKeyDown(key.VK_LMENU, true);
+        setVirtualKeyDown(key.VK_F10, true);
+        wait(1);
+        setVirtualKeyDown(key.VK_LMENU, false);
+        setVirtualKeyDown(key.VK_F10, false);
     end);
 end
