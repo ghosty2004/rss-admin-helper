@@ -6,4 +6,5 @@
 !preview/*
 !RSSAdminHelper.lua
 !RSSAdminHelper_blacklistedWords.txt
+!RSSAdminHelper_whitelistedWords.txt
 !.gitignore

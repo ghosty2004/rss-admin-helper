@@ -15,9 +15,13 @@ local dingOnShot = imgui.ImBool(false);
 local autoMute = imgui.ImBool(false);
 local autoScreenShot = imgui.ImBool(true);
 local autoReconnect = imgui.ImBool(true);
+local autoRob = imgui.ImBool(false);
+
+local robbedPlayers = {};
 
 local whitelistedTags = {"{FF0000}(King)", "{FF0000}(Lord)", "{FF0000}({FFFFFF}RCON{FF0000})", "{0060ff}(Admin)"};
 local blacklistedWords = {};
+local whitelistedWords = {};
 
 local sampDll = nil;
 
@@ -30,9 +34,15 @@ function main()
     wait(4000);
 
     -- Load Blacklisted Words
-    local file = io.open('moonloader\\RSSAdminHelper_blacklistedWords.txt', "r");
-    for value in file:lines() do 
+    local file_blacklistedWords = io.open('moonloader\\RSSAdminHelper_blacklistedWords.txt', "r");
+    for value in file_blacklistedWords:lines() do 
         table.insert(blacklistedWords, value);
+    end
+
+    -- Load Whitelisted Words
+    local file_whitelistedWords = io.open('moonloader\\RSSAdminHelper_whitelistedWords.txt', "r");
+    for value in file_whitelistedWords:lines() do 
+        table.insert(whitelistedWords, value);
     end
 
     -- Load Mission Audio for "Ding On Shot"
@@ -42,10 +52,39 @@ function main()
 
     while true do
         wait(0);
+
+        --> Menu toggle
         if(wasKeyPressed(key.VK_INSERT)) then
             menuState.v = not menuState.v;
         end
         imgui.Process = menuState.v;
+
+        --> Auto Rob
+        if(autoRob.v) then
+            local players = getAllChars();
+            for index, value in ipairs(players) do
+                local _, id = sampGetPlayerIdByCharHandle(value);
+                local _self, _self_id = sampGetPlayerIdByCharHandle(PLAYER_PED);
+
+                local _posX, _posY, _posZ = getCharCoordinates(value);
+                local _self_posX, _self_posY, _self_posZ = getCharCoordinates(PLAYER_PED);
+
+                local distance = getDistanceBetweenCoords3d(_posX, _posY, _posZ, _self_posX, _self_posY, _self_posZ);
+
+                if(_ and _self) then
+                    if(id ~= _self_id) then
+                        if(distance < 2.5) then
+                            if(not isCharInAnyCar(PLAYER_PED) and not isCharInAnyCar(value)) then
+                                if(robbedPlayers[id] == nil) then
+                                    sampProcessChatInput("/rob " .. tostring(id));
+                                    robbedPlayers[id] = true;
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
     end
 end
 
@@ -136,6 +175,7 @@ function imgui.OnDrawFrame()
             imgui.Checkbox("Mute", autoMute);
             imgui.Checkbox("Screen-Shot", autoScreenShot);
             imgui.Checkbox("Reconnect", autoReconnect);
+            imgui.Checkbox("Rob", autoRob);
         elseif(menuSelectedTab.v == 3) then
             if(imgui.Button("Respect All")) then
                 lua_thread.create(function()
@@ -151,15 +191,19 @@ function imgui.OnDrawFrame()
             end
         elseif(menuSelectedTab.v == 4) then
             imgui.TextColored(ImVec4(1, 1, 0, 1), "Words");
-            imgui.BeginChild("Scrolling");
+            imgui.BeginChild("Words");
             for index, value in ipairs(blacklistedWords) do
                 imgui.Text(string.format("%s", value));
             end
             imgui.EndChild();
         elseif(menuSelectedTab.v == 5) then
+            imgui.BeginChild("Scroll");
             imgui.TextColored(ImVec4(1, 1, 0, 1), "Tags");
-            imgui.BeginChild("Scrolling");
             for index, value in ipairs(whitelistedTags) do
+                imgui.Text(string.format("%s", value));
+            end
+            imgui.TextColored(imgui.ImVec4(1, 1, 0, 1), "Words");
+            for index, value in ipairs(whitelistedWords) do
                 imgui.Text(string.format("%s", value));
             end
             imgui.EndChild();
@@ -168,6 +212,9 @@ function imgui.OnDrawFrame()
     end
 end
 
+----------------
+--> Events
+----------------
 function sampev.onSendGiveDamage(reader, writer) 
     if(dingOnShot.v) then
         playMissionAudio(1);
@@ -194,7 +241,7 @@ function sampev.onServerMessage(color, text)
         local i2, j2 = newText:find(": {FFFFFF}");
         if(i2 == nil) then return end;
         local playerId = newText:sub(2, j2-11);
-        if(isStringHaveBlacklistedWords(newText)) then
+        if(isStringHaveBlacklistedWords(newText) and not isStringHaveWhitelistedWords(newText)) then
             lua_thread.create(function()
                 wait(0);
                 sampProcessChatInput(string.format("/mute %d limbaj vulgar.", playerId));
@@ -216,6 +263,15 @@ end
 function sampev.onConnectionLost() checkReconnect() end
 function sampev.onConnectionClosed() checkReconnect() end
 
+function sampev.onPlayerDeathNotification(killerId, killedId, reason)
+    if(robbedPlayers[killedId] ~= nil) then
+        robbedPlayers[killerId] = nil
+    end
+end
+
+----------------
+--> Functions
+----------------
 function checkReconnect()
     if(autoReconnect) then 
         local ip, port = sampGetCurrentServerAddress()
@@ -241,12 +297,21 @@ function isStringHaveBlacklistedWords(string)
     return false;
 end
 
+function isStringHaveWhitelistedWords(string)
+    for index, value in ipairs(whitelistedWords) do
+        if(string:lower():find(value)) then
+            return true;
+        end
+    end
+    return false;
+end
+
 function takeScreenShot()
     if(not autoScreenShot) then return end;
     lua_thread.create(function()
         wait(1000);
-        setVirtualKeyDown(key.VK_F8, false);
-        --writeMemory(sampDll + 0x119CBC, 1, 1, false);
-        --setVirtualKeyDown(key.VK_SNAPSHOT, true);
+        --setVirtualKeyDown(key.VK_F8, false); -- for F8
+        --writeMemory(sampDll + 0x119CBC, 1, 1, false); -- for F8 alternative but call function to "samp.dll"
+        setVirtualKeyDown(key.VK_SNAPSHOT, true); -- for "prtsc"
     end);
 end
