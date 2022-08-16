@@ -5,7 +5,7 @@
 * Script Version: **1.0.0**
 
 * Preview
-<img src="https://raw.githubusercontent.com/Ghosty2004/rss-admin-helper/master/preview/sample.gif?token=GHSAT0AAAAAABQX3THHQZV3RPEHZ7ZPHXQ6YXWKATA"/>
+<img src="/preview/sample.gif"/>
 
 * Usage
 ```
