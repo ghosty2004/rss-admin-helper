@@ -7,10 +7,14 @@ local imgui = require("imgui");
 local key = require("vkeys");
 
 local menuState = imgui.ImBool(false);
-local menuTabs = {"Utility", "Auto", "Actions", "Blacklisted", "Whitelisted"};
+local menuTabs = {"Utility", "Block rpc's", "Auto", "Actions", "Blacklisted", "Whitelisted"};
 local menuSelectedTab = imgui.ImInt(1);
 
 local dingOnShot = imgui.ImBool(false);
+local driveAnyVehicle = imgui.ImBool(false);
+
+local blockIncomingTimeSet = imgui.ImBool(false);
+local blockIncomingWeatherSet = imgui.ImBool(false);
 
 local autoMute = imgui.ImBool(false);
 local autoScreenShot = imgui.ImBool(true);
@@ -18,6 +22,7 @@ local autoInstantReplay = imgui.ImBool(false);
 local autoRob = imgui.ImBool(false);
 
 local robbedPlayers = {};
+local currentSpectate = -1;
 
 local whitelistedTags = {"{FF0000}(King)", "{FF0000}(Lord)", "{FF0000}({FFFFFF}RCON{FF0000})", "{0060ff}(Admin)"};
 local blacklistedWords = {};
@@ -49,6 +54,34 @@ function main()
     loadMissionAudio(1, 17802);
 
     sampAddChatMessage(string.format("[RSSBUSTER]: Loaded (Lua version: %s, Moonloader version: %d).", _VERSION, getMoonloaderVersion()), 0xFF0000);
+
+    sampRegisterChatCommand("ss", function()
+        takeScreenShot();
+    end);
+
+    sampRegisterChatCommand("skinid", function(param) -- 263
+        if(param:match("%d+")) then
+            local playerId = tonumber(param);
+            local result, ped = sampGetCharHandleBySampPlayerId(playerId);
+            if(result) then
+                local modelId = getCharModel(ped);
+                sampAddChatMessage(string.format("Skin ID: %d", modelId), 0xFF0000);
+            else
+                sampAddChatMessage("Player is not in your stream zone", 0xFF0000);
+            end
+        else
+            sampAddChatMessage("Usage: /skinid [playerId]", 0xFF0000);
+        end
+    end);
+
+    sampRegisterChatCommand("requestclass", function(param)
+        if(param:match("%d+")) then
+            local classId = tonumber(param);
+            sampRequestClass(classId);
+        else
+            sampAddChatMessage("Usage: /requestclass [classId]", 0xFF0000);
+        end
+    end);
 
     while true do
         wait(0);
@@ -83,6 +116,15 @@ function main()
                         end
                     end
                 end
+            end
+        end
+
+        --> Auto Spectate
+        if(not sampIsCursorActive()) then
+            if(isKeyJustPressed(key.VK_UP)) then
+                startSpectate(getNextPlayerForSpec());
+            elseif(isKeyJustPressed(key.VK_DOWN)) then
+                startSpectate(getBackPlayerForSpec());
             end
         end
     end
@@ -171,12 +213,16 @@ function imgui.OnDrawFrame()
 
         if(menuSelectedTab.v == 1) then
             imgui.Checkbox("Ding On Shot", dingOnShot);
+            imgui.Checkbox("Drive any vehicle", driveAnyVehicle);
         elseif(menuSelectedTab.v == 2) then
+            imgui.Checkbox("Incoming Time Set", blockIncomingTimeSet);
+            imgui.Checkbox("Incoming Weather Set", blockIncomingWeatherSet);
+        elseif(menuSelectedTab.v == 3) then
             imgui.Checkbox("Mute", autoMute);
             imgui.Checkbox("Screen-Shot", autoScreenShot);
             imgui.Checkbox("Instant Replay", autoInstantReplay);
             imgui.Checkbox("Rob", autoRob);
-        elseif(menuSelectedTab.v == 3) then
+        elseif(menuSelectedTab.v == 4) then
             if(imgui.Button("Respect All")) then
                 lua_thread.create(function()
                     wait(0);
@@ -189,18 +235,28 @@ function imgui.OnDrawFrame()
                     end
                 end);
             end
+            if(imgui.Button("Health + Armour all")) then
+                lua_thread.create(function()
+                    wait(0);
+                    sampProcessChatInput("/healall 0");
+                    sampProcessChatInput("/armourall 0");
+                end);
+            end
             if(imgui.Button("Reconnect")) then
                 local ip, port = sampGetCurrentServerAddress();
                 sampConnectToServer(ip, port);
             end
-        elseif(menuSelectedTab.v == 4) then
+            if(imgui.Button("Send spawn request")) then
+                sampSendRequestSpawn();
+            end
+        elseif(menuSelectedTab.v == 5) then
             imgui.TextColored(ImVec4(1, 1, 0, 1), "Words");
             imgui.BeginChild("Words");
             for index, value in ipairs(blacklistedWords) do
                 imgui.Text(string.format("%s", value));
             end
             imgui.EndChild();
-        elseif(menuSelectedTab.v == 5) then
+        elseif(menuSelectedTab.v == 6) then
             imgui.BeginChild("Scroll");
             imgui.TextColored(ImVec4(1, 1, 0, 1), "Tags");
             for index, value in ipairs(whitelistedTags) do
@@ -224,6 +280,21 @@ function sampev.onSendGiveDamage(reader, writer)
         playMissionAudio(1);
         clearCharLastDamageEntity(PLAYER_PED);
     end
+end
+
+function sampev.onSetPlayerPos(position)
+    local X, Y, Z = getCharCoordinates(PLAYER_PED);
+    if(driveAnyVehicle.v and isCharInAnyCar(PLAYER_PED) and X == position.x and Y == position.y and Z ~= position.z) then 
+        return false;
+    end
+end
+
+function sampev.onSetPlayerTime(hour, minute)
+    return not blockIncomingTimeSet.v;
+end
+
+function sampev.onSetWeather(weatherId)
+    return not blockIncomingWeatherSet.v;
 end
 
 function sampev.onServerMessage(color, text)
@@ -276,9 +347,61 @@ function sampev.onPlayerDeathNotification(killerId, killedId, reason)
     end
 end
 
+function sampev.onSendCommand(command)
+    local params = command:split(" ");
+    if(params[1] == "/specoff") then
+        currentSpectate = -1;
+    elseif(params[1] == "/spec" and params[2]:match("%d+")) then
+        currentSpectate = tonumber(params[2]);
+    end
+end
+
 ----------------
 --> Functions
 ----------------
+function string:split( inSplitPattern, outResults )
+    if not outResults then
+      outResults = { }
+    end
+    local theStart = 1
+    local theSplitStart, theSplitEnd = string.find( self, inSplitPattern, theStart )
+    while theSplitStart do
+      table.insert( outResults, string.sub( self, theStart, theSplitStart-1 ) )
+      theStart = theSplitEnd + 1
+      theSplitStart, theSplitEnd = string.find( self, inSplitPattern, theStart )
+    end
+    table.insert( outResults, string.sub( self, theStart ) )
+    return outResults
+end
+
+function getNextPlayerForSpec()
+    for i = currentSpectate, sampGetMaxPlayerId(false) do
+        if(i ~= currentSpectate and sampIsPlayerConnected(i)) then
+            return i;
+        end
+    end
+    return -1;
+end
+
+function getBackPlayerForSpec()
+    for i = currentSpectate, 0, -1 do
+        if(i ~= currentSpectate and sampIsPlayerConnected(i)) then
+            return i;
+        end
+    end
+    return -1;
+end
+
+function startSpectate(playerId)
+    if(sampIsPlayerConnected(playerId)) then
+        sampProcessChatInput(string.format("/spec %d", playerId));
+        currentSpectate = playerId;
+    else
+        sampProcessChatInput("/specoff");
+        currentSpectate = -1;
+    end
+end
+
 function isStringHasWhitelistedTag(string)
     for index, value in ipairs(whitelistedTags) do
         if(string:find(value, 1, true)) then
@@ -307,17 +430,22 @@ function isStringHaveWhitelistedWords(string)
 end
 
 function takeScreenShot()
-    if(not autoScreenShot) then return end;
+    if(not autoScreenShot.v) then return end;
     lua_thread.create(function()
         wait(1000);
         --setVirtualKeyDown(key.VK_F8, false); -- for F8
         --writeMemory(sampDll + 0x119CBC, 1, 1, false); -- for F8 alternative but call function to "samp.dll"
-        setVirtualKeyDown(key.VK_SNAPSHOT, true); -- for "prtsc"
+        --setVirtualKeyDown(key.VK_SNAPSHOT, true); -- for "prtsc"
+        setVirtualKeyDown(key.VK_LMENU, true);
+        setVirtualKeyDown(key.VK_S, true);
+        wait(1);
+        setVirtualKeyDown(key.VK_LMENU, false);
+        setVirtualKeyDown(key.VK_S, false);
     end);
 end
 
 function takeInstantReplay()
-    if(not autoInstantReplay) then return end;
+    if(not autoInstantReplay.v) then return end;
     lua_thread.create(function()
         setVirtualKeyDown(key.VK_LMENU, true);
         setVirtualKeyDown(key.VK_F10, true);
